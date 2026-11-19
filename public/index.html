@@ -328,7 +328,7 @@ function playerState(e) {
   return `<div class="state"><h2>${esc(m[0])}</h2><p>${esc(m[1])}</p>${btn}</div>`;
 }
 function playersTable(d) {
-  const key = state.sort, rows = [...d.players].sort((a, b) => (b[key] ?? -1) - (a[key] ?? -1) || a.name.localeCompare(b.name));
+  const key = state.sort, used = d.players.filter(p => p.apps || p.minutes), idle = d.players.length - used.length, rows = [...used].sort((a, b) => (b[key] ?? -1) - (a[key] ?? -1) || a.name.localeCompare(b.name));
   if (!rows.length) return `<div class="state"><h2>Sem estatísticas para ${esc(short(d.team))} em ${d.season}.</h2><p>A fonte não listou jogadores dessa temporada.</p></div>`;
   const th = (k, label, title, x) => `<th scope="col" class="${x ? "x" : ""} ${key === k ? "on" : ""}" aria-sort="${key === k ? "descending" : "none"}"><button class="sort" data-sort="${k}" title="${title}. Ordenar">${label}</button></th>`;
   return `<table class="pl"><caption class="sr">Jogadores do ${esc(short(d.team))} em ${d.season}</caption><thead><tr>
@@ -336,7 +336,7 @@ function playersTable(d) {
     ${th("yellow", "CA", "Cartões amarelos", 1)}${th("red", "CV", "Cartões vermelhos", 1)}${th("rating", "Nota", "Nota média da fonte", 1)}</tr></thead><tbody>` +
     rows.map(p => `<tr><td><span class="nm">${esc(p.name)}</span><span class="pos">${esc(POS[p.position] || p.position || "")}${p.age ? " · " + p.age + " anos" : ""}</span></td>
       <td>${num(p.apps)}</td><td class="x">${num(p.minutes)}</td><td><b>${num(p.goals)}</b></td><td>${num(p.assists)}</td>
-      <td class="x">${num(p.yellow)}</td><td class="x">${num(p.red)}</td><td class="x">${p.rating ? p.rating.toFixed(1) : "–"}</td></tr>`).join("") + `</tbody></table>`;
+      <td class="x">${num(p.yellow)}</td><td class="x">${num(p.red)}</td><td class="x">${p.rating ? p.rating.toFixed(1) : "–"}</td></tr>`).join("") + `</tbody></table>` + (idle ? `<p class="note">${idle} jogador${idle > 1 ? "es" : ""} do elenco sem partidas na temporada ${idle > 1 ? "não aparecem" : "não aparece"} aqui.</p>` : "");
 }
 async function renderPlayers(id) {
   const st = await getData("standings");
