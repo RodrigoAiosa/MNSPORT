@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MNSPORT · Dados dos times do Brasil</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; font:15px/1.5 system-ui,sans-serif; background:#0b0b0b; color:#eee; }
+  main { max-width:960px; margin:0 auto; padding:24px 16px 64px; }
+  h1 { margin:0 0 4px; } p.sub { color:#9a9a9a; margin:0 0 20px; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  select,input,button { background:#1a1a1a; color:#eee; border:1px solid #333; border-radius:6px; padding:8px 10px; font:inherit; }
+  button.active { background:#2e7d32; border-color:#2e7d32; }
+  table { width:100%; border-collapse:collapse; }
+  th,td { padding:6px 8px; text-align:right; border-bottom:1px solid #222; }
+  th:nth-child(2),td:nth-child(2) { text-align:left; } th { color:#9a9a9a; font-weight:600; }
+  td.t { text-align:left; } .muted { color:#9a9a9a; } #msg { color:#e57373; min-height:1.5em; }
+  .wrap { overflow-x:auto; }
+</style>
+</head>
+<body>
+<main>
+  <h1>MNSPORT</h1>
+  <p class="sub">Classificação e jogos dos times brasileiros · fonte: openfootball (domínio público)</p>
+  <div class="bar">
+    <select id="season"></select>
+    <select id="division">
+      <option value="br1">Série A</option><option value="br2">Série B</option><option value="brcup">Copa do Brasil</option>
+    </select>
+    <input id="team" placeholder="Filtrar time (jogos)">
+    <button id="bt-st" class="active">Classificação</button>
+    <button id="bt-ma">Jogos</button>
+  </div>
+  <div id="msg"></div>
+  <div class="wrap"><table id="tbl"></table></div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const now = new Date().getFullYear();
+for (let y = now; y >= 2018; y--) $("season").add(new Option(y, y));
+$("season").value = Math.min(now, 2025);
+let view = "standings";
+
+function esc(s){ return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+async function load() {
+  $("msg").textContent = "Carregando…"; $("tbl").innerHTML = "";
+  $("bt-st").classList.toggle("active", view === "standings");
+  $("bt-ma").classList.toggle("active", view === "matches");
+  const p = new URLSearchParams({ season: $("season").value, division: $("division").value });
+  if (view === "matches" && $("team").value.trim()) p.set("team", $("team").value.trim());
+  try {
+    const r = await fetch(`/api/${view}?${p}`);
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || r.status);
+    $("msg").textContent = data.length ? "" : "Sem dados para essa seleção.";
+    $("tbl").innerHTML = view === "standings" ? standings(data) : matches(data);
+  } catch (e) { $("msg").textContent = "Erro: " + e.message; }
+}
+function standings(d) {
+  const h = ["#","Time","PJ","V","E","D","GP","GC","SG","Pts"];
+  return "<tr>" + h.map(x=>`<th>${x}</th>`).join("") + "</tr>" +
+    d.map(r => `<tr><td>${r.pos}</td><td class="t">${esc(r.team)}</td><td>${r.pj}</td><td>${r.v}</td><td>${r.e}</td><td>${r.d}</td><td>${r.gp}</td><td>${r.gc}</td><td>${r.sg}</td><td><b>${r.pts}</b></td></tr>`).join("");
+}
+function matches(d) {
+  return "<tr><th>Data</th><th>Rodada</th><th>Casa</th><th>Placar</th><th>Fora</th></tr>" +
+    d.map(m => `<tr><td class="t muted">${esc(m.date)} ${esc(m.time||"")}</td><td class="t muted">${esc(m.round)}</td><td class="t">${esc(m.home)}</td><td>${m.home_goals!=null ? m.home_goals+" - "+m.away_goals : esc(m.score_raw||"—")}</td><td class="t">${esc(m.away)}</td></tr>`).join("");
+}
+$("bt-st").onclick = () => { view = "standings"; load(); };
+$("bt-ma").onclick = () => { view = "matches"; load(); };
+["season","division"].forEach(i => $(i).onchange = load);
+$("team").onchange = () => { view = "matches"; load(); };
+load();
+</script>
+</body>
+</html>

@@ -39,3 +39,9 @@ Para `team-info`, a chave da API pode ser definida em `THESPORTSDB_KEY` (padrão
 ```bash
 pip install pytest && pytest
 ```
+
+## Site (Vercel)
+
+`public/index.html` é o site estático (classificação e jogos) e `api/standings.py` / `api/matches.py`
+são funções Python que ele consome (`/api/standings?season=2025&division=br1`).
+Basta importar o repositório na Vercel, sem configuração extra.
