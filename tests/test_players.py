@@ -56,3 +56,16 @@ def test_team_players_requires_key(monkeypatch):
     with pytest.raises(PlayersError) as e:
         team_players("Flamengo", 2025)
     assert e.value.code == "no_key"
+
+
+def test_team_players_never_asks_beyond_free_page_limit():
+    paths = []
+
+    def fake(path, key):
+        paths.append(path)
+        if path.startswith("/teams"):
+            return TEAMS
+        return {"errors": [], "paging": {"total": 9}, "response": []}
+
+    team_players("CR Flamengo", 2024, "br1", key="k", call=fake)
+    assert len(paths) == 1 + 3 and not any("page=4" in x for x in paths)

@@ -33,7 +33,8 @@ Para `team-info`, a chave da API pode ser definida em `THESPORTSDB_KEY` (padrão
   (`mnsport/forecast.py`). É uma estimativa estatística, não uma previsão.
 - **Jogadores** (aba Jogadores): estatísticas por time via [API-Football](https://www.api-football.com/) (`mnsport/players.py`).
   Exige uma chave gratuita na variável de ambiente `APIFOOTBALL_KEY` (na Vercel: Settings › Environment Variables).
-  O plano gratuito tem limite diário e pode não cobrir todas as temporadas; as respostas ficam em cache por 12 h para poupar a cota.
+  O plano gratuito cobre só algumas temporadas (em nov/2026: 2022 a 2024), limita a 100 consultas por dia e a 3 páginas por consulta
+  (até 60 jogadores por time); as respostas ficam em cache por 12 h para poupar a cota.
 
 ## Limitações conhecidas
 

@@ -319,11 +319,13 @@ const num = n => n ? Number(n).toLocaleString("pt-BR") : `<span aria-label="zero
 function playerState(e) {
   const m = {
     no_key: ["As estatísticas de jogadores ainda não estão ativadas.", "Cadastre uma chave gratuita da API-Football e adicione na Vercel, em Settings › Environment Variables, com o nome APIFOOTBALL_KEY. Depois faça um novo deploy."],
-    plan: ["Essa temporada não está no plano gratuito da fonte.", "Escolha outro ano ou use um plano pago da API-Football. Mensagem da fonte: " + e.message],
+    plan: ["Essa temporada não está no plano gratuito da fonte.", "O plano gratuito da API-Football cobre só alguns anos (hoje, de 2022 a 2024)."],
     limit: ["O limite diário de consultas da fonte foi atingido.", "As consultas já feitas continuam disponíveis. Tente de novo amanhã."],
     team_not_found: ["Não encontrei esse time na fonte de jogadores.", e.message]
   }[e.code] || ["Não foi possível carregar os jogadores.", "A fonte não respondeu. Tente de novo em instantes."];
-  return `<div class="state"><h2>${esc(m[0])}</h2><p>${esc(m[1])}</p>${e.code ? "" : `<button class="btn" id="retry">Tentar novamente</button>`}</div>`;
+  const last = e.code === "plan" && /to (\d{4})/.exec(e.message);
+  const btn = last ? `<button class="btn" data-season="${last[1]}">Ver ${last[1]}</button>` : e.code ? "" : `<button class="btn" id="retry">Tentar novamente</button>`;
+  return `<div class="state"><h2>${esc(m[0])}</h2><p>${esc(m[1])}</p>${btn}</div>`;
 }
 function playersTable(d) {
   const key = state.sort, rows = [...d.players].sort((a, b) => (b[key] ?? -1) - (a[key] ?? -1) || a.name.localeCompare(b.name));

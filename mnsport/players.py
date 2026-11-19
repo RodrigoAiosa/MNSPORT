@@ -15,6 +15,7 @@ import urllib.request
 
 BASE = "https://v3.football.api-sports.io"
 LEAGUES = {"br1": 71, "br2": 72}  # Série A, Série B
+MAX_PAGES = 3  # limite do plano gratuito (20 jogadores por página) e trava contra estourar a cota diária
 
 
 class PlayersError(Exception):
@@ -112,7 +113,7 @@ def team_players(team_name: str, season: int, division: str = "br1", key: str | 
     league = LEAGUES[division]
     team = find_team(_check(call(f"/teams?league={league}&season={season}", key)), team_name)
     pages, page, total = [], 1, 1
-    while page <= total and page <= 5:  # trava de segurança contra estourar a cota diária
+    while page <= total and page <= MAX_PAGES:
         payload = _check(call(f"/players?team={team['id']}&league={league}&season={season}&page={page}", key))
         pages.append(payload)
         total = (payload.get("paging") or {}).get("total", 1) or 1
