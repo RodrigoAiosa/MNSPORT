@@ -9,7 +9,7 @@ TEAMS = {"errors": [], "response": [
 
 
 def player(pid, name, minutes, goals, rating="7.10", league=71):
-    return {"player": {"id": pid, "name": name, "age": 28, "nationality": "Brazil"},
+    return {"player": {"id": pid, "name": name, "age": 28, "nationality": "Brazil", "photo": f"https://media.api-sports.io/football/players/{pid}.png"},
             "statistics": [{"league": {"id": league}, "games": {"appearences": 10, "minutes": minutes, "position": "Attacker", "rating": rating},
                             "goals": {"total": goals, "assists": None}, "cards": {"yellow": 2, "red": 0}}]}
 
@@ -69,3 +69,8 @@ def test_team_players_never_asks_beyond_free_page_limit():
 
     team_players("CR Flamengo", 2024, "br1", key="k", call=fake)
     assert len(paths) == 1 + 3 and not any("page=4" in x for x in paths)
+
+
+def test_parse_players_keeps_photo():
+    rows = parse_players([{"response": [player(7, "A", 90, 1)]}], 71)
+    assert rows[0]["photo"] == "https://media.api-sports.io/football/players/7.png"

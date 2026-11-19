@@ -126,6 +126,19 @@
   .g .s.muted { font-weight: 400; font-size: 14px; color: var(--mut); }
   .g .w { font-weight: 700; }
 
+  /* Tooltip de jogador */
+  #tip {
+    position: fixed; z-index: 10; display: none; align-items: center; gap: 12px; max-width: 300px;
+    padding: 10px 14px 10px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .18); pointer-events: none;
+  }
+  #tip.on { display: flex; }
+  #tip .ph { width: 72px; height: 72px; flex: none; border-radius: 50%; background: var(--sub); object-fit: cover;
+    display: grid; place-items: center; color: var(--mut); font-weight: 600; font-size: 22px; }
+  #tip .tn { font-weight: 600; line-height: 1.25; }
+  #tip .ts { color: var(--mut); font-size: 14px; }
+  .pl tbody tr[data-photo]:hover, .pl tbody tr[data-photo]:focus-visible { background: var(--sub); outline: none; }
+
   /* Estados */
   .state { padding: 56px 0; max-width: 440px; }
   .state h2 { font-size: 18px; margin: 0 0 6px; }
@@ -314,6 +327,7 @@ function matchesView(all) {
   return `<div class="bar">${nav}<input type="search" id="team" placeholder="Filtrar por time" aria-label="Filtrar por time" value="${esc(state.team)}" autocomplete="off"></div>${list}`;
 }
 
+const photoOk = u => typeof u === "string" && u.startsWith("https://media.api-sports.io/"); // só aceita o servidor de imagens da fonte
 const POS = { Goalkeeper: "Goleiro", Defender: "Defensor", Midfielder: "Meio-campista", Attacker: "Atacante" };
 const num = n => n ? Number(n).toLocaleString("pt-BR") : `<span aria-label="zero">–</span>`;
 function playerState(e) {
@@ -334,7 +348,7 @@ function playersTable(d) {
   return `<table class="pl"><caption class="sr">Jogadores do ${esc(short(d.team))} em ${d.season}</caption><thead><tr>
     <th scope="col">Jogador</th>${th("apps", "J", "Jogos")}${th("minutes", "Min", "Minutos jogados", 1)}${th("goals", "Gols", "Gols")}${th("assists", "Ass", "Assistências")}
     ${th("yellow", "CA", "Cartões amarelos", 1)}${th("red", "CV", "Cartões vermelhos", 1)}${th("rating", "Nota", "Nota média da fonte", 1)}</tr></thead><tbody>` +
-    rows.map(p => `<tr><td><span class="nm">${esc(p.name)}</span><span class="pos">${esc(POS[p.position] || p.position || "")}${p.age ? " · " + p.age + " anos" : ""}</span></td>
+    rows.map(p => `<tr ${photoOk(p.photo) ? `tabindex="0" data-photo="${esc(p.photo)}" data-name="${esc(p.name)}" data-sub="${esc((POS[p.position] || p.position || "") + (p.age ? " · " + p.age + " anos" : ""))}"` : ""}><td><span class="nm">${esc(p.name)}</span><span class="pos">${esc(POS[p.position] || p.position || "")}${p.age ? " · " + p.age + " anos" : ""}</span></td>
       <td>${num(p.apps)}</td><td class="x">${num(p.minutes)}</td><td><b>${num(p.goals)}</b></td><td>${num(p.assists)}</td>
       <td class="x">${num(p.yellow)}</td><td class="x">${num(p.red)}</td><td class="x">${p.rating ? p.rating.toFixed(1) : "–"}</td></tr>`).join("") + `</tbody></table>` + (idle ? `<p class="note">${idle} jogador${idle > 1 ? "es" : ""} do elenco sem partidas na temporada ${idle > 1 ? "não aparecem" : "não aparece"} aqui.</p>` : "");
 }
@@ -353,6 +367,7 @@ async function renderPlayers(id) {
 }
 
 async function render() {
+  hideTip();
   writeHash();
   $("#title").textContent = `${DIV_NAME[state.div]} ${state.season}`;
   document.title = `${DIV_NAME[state.div]} ${state.season} · MNSPORT`;
@@ -404,6 +419,42 @@ $("#out").addEventListener("change", e => {
   if (e.target.id === "round") { state.round = e.target.value; render(); }
   if (e.target.id === "pteam") { state.pteam = e.target.value; render(); }
 });
+
+/* ---------- tooltip com a foto do jogador ---------- */
+const tip = document.createElement("div");
+tip.id = "tip"; tip.setAttribute("role", "tooltip");
+document.body.append(tip);
+let tipRow = null, tipTimer;
+function initials(n) { return n.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase(); }
+function showTip(tr) {
+  tipRow = tr;
+  const name = tr.dataset.name, img = new Image();
+  img.className = "ph"; img.width = img.height = 72; img.alt = ""; img.src = tr.dataset.photo;
+  img.addEventListener("error", () => { const f = document.createElement("div"); f.className = "ph"; f.textContent = initials(name); img.replaceWith(f); });
+  const box = document.createElement("div");
+  const n = document.createElement("div"); n.className = "tn"; n.textContent = name;
+  const s = document.createElement("div"); s.className = "ts"; s.textContent = tr.dataset.sub;
+  box.append(n, s);
+  tip.replaceChildren(img, box);
+  tip.classList.add("on");
+  const r = tr.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+  let top = r.top - h - 6; if (top < 8) top = r.bottom + 6;               // acima da linha; se não couber, abaixo
+  const left = Math.max(8, Math.min(r.left + 10, innerWidth - w - 8));
+  tip.style.top = top + "px"; tip.style.left = left + "px";
+}
+function hideTip() { clearTimeout(tipTimer); tipRow = null; tip.classList.remove("on"); }
+function tipEnter(e) {
+  const tr = e.target.closest && e.target.closest("tr[data-photo]");
+  if (!tr || tr === tipRow) return;
+  clearTimeout(tipTimer);
+  tipTimer = setTimeout(() => showTip(tr), 120); // pequena espera: evita piscar ao varrer a tabela com o mouse
+}
+$("#out").addEventListener("pointerover", tipEnter);
+$("#out").addEventListener("focusin", tipEnter);
+$("#out").addEventListener("pointerout", e => { const to = e.relatedTarget; if (!(to && to.closest && to.closest("tr[data-photo]") === tipRow)) hideTip(); });
+$("#out").addEventListener("focusout", hideTip);
+addEventListener("scroll", hideTip, { passive: true });
+addEventListener("keydown", e => { if (e.key === "Escape") hideTip(); });
 
 let timer;
 $("#out").addEventListener("input", e => {

@@ -91,6 +91,7 @@ def parse_players(pages: list[dict], league: int) -> list[dict]:
             rating = g.get("rating")
             rows.append({
                 "id": p["id"], "name": p["name"], "age": p.get("age"), "nationality": p.get("nationality"),
+                "photo": p.get("photo"),
                 "position": g.get("position"),
                 "apps": g.get("appearences", g.get("appearances")) or 0,
                 "minutes": g.get("minutes") or 0,
