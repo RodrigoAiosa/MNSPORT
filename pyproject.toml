@@ -1,0 +1,15 @@
+[project]
+name = "mnsport"
+version = "0.1.0"
+description = "Coleta de dados públicos dos times do Brasil"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+mnsport = "mnsport.cli:main"
+
+[tool.setuptools]
+packages = ["mnsport"]
