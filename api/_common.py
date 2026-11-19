@@ -10,8 +10,12 @@ from mnsport import sources  # noqa: E402
 from mnsport.parser import parse_footballtxt  # noqa: E402
 
 
+def params(path):
+    return {k: v[0] for k, v in parse_qs(urlparse(path).query).items()}
+
+
 def load(path):
-    q = {k: v[0] for k, v in parse_qs(urlparse(path).query).items()}
+    q = params(path)
     season = int(q.get("season", 2025))
     division = q.get("division", "br1")
     ms = parse_footballtxt(sources.fetch_season(season, division))

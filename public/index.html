@@ -81,6 +81,10 @@
   th:nth-child(2), td:nth-child(2) { text-align: left; }
   td:last-child, th:last-child { padding-right: 10px; }
   td.pts { font-weight: 700; }
+  th.prob, td.prob { padding-left: 14px; }
+  td.prob { font-weight: 600; color: var(--acc); }
+  td.prob.zero { color: var(--mut); font-weight: 400; }
+  .note { margin: 12px 10px 0; color: var(--mut); font-size: 14px; max-width: 60ch; }
   tr.lead td:first-child { box-shadow: inset 3px 0 0 var(--acc); color: var(--ink); font-weight: 700; }
   tr.down td:first-child { box-shadow: inset 3px 0 0 var(--neg); }
   button.team {
@@ -230,23 +234,28 @@ function showError(e) {
     : `<div class="state"><h2>Não foi possível carregar os dados.</h2><p>A fonte pública não respondeu. Tente de novo em alguns instantes.</p><button class="btn" id="retry">Tentar novamente</button></div>`;
 }
 
+const pct = p => p >= 0.995 ? "100%" : p >= 0.01 ? Math.round(p * 100) + "%" : p > 0 ? "<1%" : "–";
+const dayShort = iso => new Date(iso + "T12:00:00").toLocaleDateString("pt-BR", { day: "numeric", month: "short" }).replace(".", "");
 function standingsHTML(rows) {
   if (!rows.length) return `<div class="state"><h2>Sem jogos disputados ainda.</h2><p>A classificação aparece assim que houver placares.</p></div>`;
   const n = rows.length, hasZone = state.div !== "brcup" && n >= 16;
+  const hasP = rows.some(r => r.p_title != null);
+  const asOf = hasP ? rows[0].as_of : null;
   const body = rows.map(r => {
     const cls = hasZone ? (r.pos === 1 ? "lead" : r.pos > n - 4 ? "down" : "") : "";
     return `<tr class="${cls}"><td>${r.pos}</td>
       <td><button class="team" data-team="${esc(r.team)}" title="Ver jogos do ${esc(short(r.team))}">${esc(short(r.team))}</button></td>
       <td>${r.pj}</td><td>${r.v}</td><td class="x">${r.e}</td><td class="x">${r.d}</td>
-      <td class="x">${r.gp}</td><td class="x">${r.gc}</td><td>${r.sg > 0 ? "+" : ""}${r.sg}</td><td class="pts">${r.pts}</td></tr>`;
+      <td class="x">${r.gp}</td><td class="x">${r.gc}</td><td>${r.sg > 0 ? "+" : ""}${r.sg}</td><td class="pts">${r.pts}</td>${hasP ? `<td class="prob ${r.p_title > 0 ? "" : "zero"}">${pct(r.p_title)}</td>` : ""}</tr>`;
   }).join("");
   return `<table><caption class="sr">Classificação ${esc(DIV_NAME[state.div])} ${state.season}</caption>
     <thead><tr><th scope="col"><abbr title="Posição">#</abbr></th><th scope="col">Time</th>
     <th scope="col"><abbr title="Jogos">J</abbr></th><th scope="col"><abbr title="Vitórias">V</abbr></th>
     <th scope="col" class="x"><abbr title="Empates">E</abbr></th><th scope="col" class="x"><abbr title="Derrotas">D</abbr></th>
     <th scope="col" class="x"><abbr title="Gols pró">GP</abbr></th><th scope="col" class="x"><abbr title="Gols contra">GC</abbr></th>
-    <th scope="col"><abbr title="Saldo de gols">SG</abbr></th><th scope="col">Pts</th></tr></thead><tbody>${body}</tbody></table>
-    ${hasZone ? `<div class="legend"><span><i style="background:var(--acc)"></i>Líder</span><span><i style="background:var(--neg)"></i>Rebaixamento</span></div>` : ""}`;
+    <th scope="col"><abbr title="Saldo de gols">SG</abbr></th><th scope="col">Pts</th>${hasP ? `<th scope="col" class="prob"><abbr title="Chance de ser campeão, estimada por simulação">Título</abbr></th>` : ""}</tr></thead><tbody>${body}</tbody></table>
+    ${hasZone ? `<div class="legend"><span><i style="background:var(--acc)"></i>Líder</span><span><i style="background:var(--neg)"></i>Rebaixamento</span></div>` : ""}
+    ${hasP ? `<p class="note">Título: chance estimada por simulação dos jogos que faltam, com resultados até ${esc(dayShort(asOf))}. É uma estimativa estatística, não uma previsão.</p>` : ""}`;
 }
 
 function scoreCell(m) {
