@@ -77,8 +77,18 @@
   th { font-size: 13px; font-weight: 500; color: var(--mut); text-align: right; padding: 14px 6px 8px; }
   th abbr { text-decoration: none; }
   td { padding: 0 6px; height: 48px; text-align: right; border-top: 1px solid var(--line); }
-  th:nth-child(1), td:nth-child(1) { width: 36px; text-align: left; padding-left: 10px; color: var(--mut); }
-  th:nth-child(2), td:nth-child(2) { text-align: left; }
+  .st th:nth-child(1), .st td:nth-child(1) { width: 36px; text-align: left; padding-left: 10px; color: var(--mut); }
+  .st th:nth-child(2), .st td:nth-child(2) { text-align: left; }
+  .pl th:first-child, .pl td:first-child { text-align: left; padding-left: 10px; }
+  .pl td:first-child { height: 56px; }
+  .pl .pos { display: block; color: var(--mut); font-size: 13px; line-height: 1.2; }
+  .pl .nm { font-weight: 500; line-height: 1.3; }
+  .pl td.z { color: var(--mut); }
+  .pl th.on { color: var(--ink); }
+  .pl th { padding-top: 6px; padding-bottom: 0; }
+  button.sort { all: unset; cursor: pointer; padding: 8px 4px; }
+  button.sort:hover { color: var(--ink); }
+  button.sort:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 4px; }
   td:last-child, th:last-child { padding-right: 10px; }
   td.pts { font-weight: 700; }
   th.prob, td.prob { padding-left: 14px; }
@@ -161,6 +171,7 @@
     <legend class="sr">Visualização</legend>
     <label><input type="radio" name="view" value="standings"><span>Classificação</span></label>
     <label><input type="radio" name="view" value="matches"><span>Jogos</span></label>
+    <label><input type="radio" name="view" value="players"><span>Jogadores</span></label>
   </fieldset>
 
   <main id="out" aria-live="polite"></main>
@@ -174,12 +185,12 @@ const THIS_YEAR = new Date().getFullYear();
 const DIV_NAME = { br1: "Brasileirão Série A", br2: "Brasileirão Série B", brcup: "Copa do Brasil" };
 
 /* ---------- estado (compartilhável pela URL) ---------- */
-const state = { season: THIS_YEAR, div: "br1", view: "standings", team: "", round: null };
+const state = { season: THIS_YEAR, div: "br1", view: "standings", team: "", round: null, pteam: "", sort: "minutes" };
 (function readHash() {
   const [s, d, v] = location.hash.slice(1).split("/");
   if (/^\d{4}$/.test(s)) state.season = +s;
   if (DIV_NAME[d]) state.div = d;
-  if (v === "matches" || v === "standings") state.view = v;
+  if (v === "matches" || v === "standings" || v === "players") state.view = v;
 })();
 function writeHash() { history.replaceState(null, "", `#${state.season}/${state.div}/${state.view}`); }
 
@@ -211,21 +222,22 @@ const dayLabel = iso => new Date(iso + "T12:00:00").toLocaleDateString("pt-BR", 
 /* ---------- dados (cache em memória: segunda visita é instantânea) ---------- */
 const cache = new Map();
 let reqId = 0;
-async function getData(view) {
-  const key = `${view}|${state.season}|${state.div}`;
+async function getData(view, team = "") {
+  const key = `${view}|${state.season}|${state.div}|${team}`;
   if (cache.has(key)) return cache.get(key);
-  const r = await fetch(`/api/${view}?season=${state.season}&division=${state.div}`);
+  const r = await fetch(`/api/${view}?season=${state.season}&division=${state.div}` + (team ? `&team=${encodeURIComponent(team)}` : ""));
   let body; try { body = await r.json(); } catch { body = null; }
-  if (!r.ok) { const e = new Error(body?.error || r.status); e.notFound = /404/.test(e.message); throw e; }
+  if (!r.ok) { const e = new Error(body?.error || r.status); e.notFound = /404/.test(e.message); e.code = body?.code; throw e; }
   cache.set(key, body);
   return body;
 }
 
 /* ---------- renderização ---------- */
-function skeleton() {
+function skelHTML() {
   const w = [70, 55, 80, 62, 74, 50, 66, 58];
-  $("#out").innerHTML = `<div class="skel" role="status" aria-label="Carregando">${w.map(x => `<div style="--w:${x}%"></div>`).join("")}</div>`;
+  return `<div class="skel" role="status" aria-label="Carregando">${w.map(x => `<div style="--w:${x}%"></div>`).join("")}</div>`;
 }
+function skeleton() { $("#out").innerHTML = skelHTML(); }
 function showError(e) {
   const name = DIV_NAME[state.div];
   const prev = state.season - 1;
@@ -248,7 +260,7 @@ function standingsHTML(rows) {
       <td>${r.pj}</td><td>${r.v}</td><td class="x">${r.e}</td><td class="x">${r.d}</td>
       <td class="x">${r.gp}</td><td class="x">${r.gc}</td><td>${r.sg > 0 ? "+" : ""}${r.sg}</td><td class="pts">${r.pts}</td>${hasP ? `<td class="prob ${r.p_title > 0 ? "" : "zero"}">${pct(r.p_title)}</td>` : ""}</tr>`;
   }).join("");
-  return `<table><caption class="sr">Classificação ${esc(DIV_NAME[state.div])} ${state.season}</caption>
+  return `<table class="st"><caption class="sr">Classificação ${esc(DIV_NAME[state.div])} ${state.season}</caption>
     <thead><tr><th scope="col"><abbr title="Posição">#</abbr></th><th scope="col">Time</th>
     <th scope="col"><abbr title="Jogos">J</abbr></th><th scope="col"><abbr title="Vitórias">V</abbr></th>
     <th scope="col" class="x"><abbr title="Empates">E</abbr></th><th scope="col" class="x"><abbr title="Derrotas">D</abbr></th>
@@ -302,6 +314,42 @@ function matchesView(all) {
   return `<div class="bar">${nav}<input type="search" id="team" placeholder="Filtrar por time" aria-label="Filtrar por time" value="${esc(state.team)}" autocomplete="off"></div>${list}`;
 }
 
+const POS = { Goalkeeper: "Goleiro", Defender: "Defensor", Midfielder: "Meio-campista", Attacker: "Atacante" };
+const num = n => n ? Number(n).toLocaleString("pt-BR") : `<span aria-label="zero">–</span>`;
+function playerState(e) {
+  const m = {
+    no_key: ["As estatísticas de jogadores ainda não estão ativadas.", "Cadastre uma chave gratuita da API-Football e adicione na Vercel, em Settings › Environment Variables, com o nome APIFOOTBALL_KEY. Depois faça um novo deploy."],
+    plan: ["Essa temporada não está no plano gratuito da fonte.", "Escolha outro ano ou use um plano pago da API-Football. Mensagem da fonte: " + e.message],
+    limit: ["O limite diário de consultas da fonte foi atingido.", "As consultas já feitas continuam disponíveis. Tente de novo amanhã."],
+    team_not_found: ["Não encontrei esse time na fonte de jogadores.", e.message]
+  }[e.code] || ["Não foi possível carregar os jogadores.", "A fonte não respondeu. Tente de novo em instantes."];
+  return `<div class="state"><h2>${esc(m[0])}</h2><p>${esc(m[1])}</p>${e.code ? "" : `<button class="btn" id="retry">Tentar novamente</button>`}</div>`;
+}
+function playersTable(d) {
+  const key = state.sort, rows = [...d.players].sort((a, b) => (b[key] ?? -1) - (a[key] ?? -1) || a.name.localeCompare(b.name));
+  if (!rows.length) return `<div class="state"><h2>Sem estatísticas para ${esc(short(d.team))} em ${d.season}.</h2><p>A fonte não listou jogadores dessa temporada.</p></div>`;
+  const th = (k, label, title, x) => `<th scope="col" class="${x ? "x" : ""} ${key === k ? "on" : ""}" aria-sort="${key === k ? "descending" : "none"}"><button class="sort" data-sort="${k}" title="${title}. Ordenar">${label}</button></th>`;
+  return `<table class="pl"><caption class="sr">Jogadores do ${esc(short(d.team))} em ${d.season}</caption><thead><tr>
+    <th scope="col">Jogador</th>${th("apps", "J", "Jogos")}${th("minutes", "Min", "Minutos jogados", 1)}${th("goals", "Gols", "Gols")}${th("assists", "Ass", "Assistências")}
+    ${th("yellow", "CA", "Cartões amarelos", 1)}${th("red", "CV", "Cartões vermelhos", 1)}${th("rating", "Nota", "Nota média da fonte", 1)}</tr></thead><tbody>` +
+    rows.map(p => `<tr><td><span class="nm">${esc(p.name)}</span><span class="pos">${esc(POS[p.position] || p.position || "")}${p.age ? " · " + p.age + " anos" : ""}</span></td>
+      <td>${num(p.apps)}</td><td class="x">${num(p.minutes)}</td><td><b>${num(p.goals)}</b></td><td>${num(p.assists)}</td>
+      <td class="x">${num(p.yellow)}</td><td class="x">${num(p.red)}</td><td class="x">${p.rating ? p.rating.toFixed(1) : "–"}</td></tr>`).join("") + `</tbody></table>`;
+}
+async function renderPlayers(id) {
+  const st = await getData("standings");
+  if (id !== reqId) return;
+  const teams = st.map(r => r.team).sort((a, b) => short(a).localeCompare(short(b), "pt-BR"));
+  $("#out").innerHTML = `<div class="bar"><select id="pteam" aria-label="Time"><option value="">Escolha um time</option>${teams.map(t => `<option value="${esc(t)}" ${t === state.pteam ? "selected" : ""}>${esc(short(t))}</option>`).join("")}</select></div><div id="plist"></div>`;
+  const box = $("#plist");
+  if (!state.pteam) { box.innerHTML = `<div class="state"><h2>Escolha um time.</h2><p>Mostramos jogos, gols, assistências e cartões de cada jogador na temporada.</p></div>`; return; }
+  if (!cache.has(`players|${state.season}|${state.div}|${state.pteam}`)) box.innerHTML = skelHTML();
+  try {
+    const d = await getData("players", state.pteam);
+    if (id === reqId) box.innerHTML = playersTable(d);
+  } catch (e) { if (id === reqId) box.innerHTML = playerState(e); }
+}
+
 async function render() {
   writeHash();
   $("#title").textContent = `${DIV_NAME[state.div]} ${state.season}`;
@@ -310,12 +358,18 @@ async function render() {
   document.querySelector(`input[name=division][value=${state.div}]`).checked = true;
   $("#season").value = state.season;
   const cup = state.div === "brcup";
-  if (cup) state.view = "matches"; // classificação por pontos corridos não vale para mata-mata
+  if (cup && state.view !== "matches") state.view = "matches"; // classificação e elencos só para pontos corridos
   document.querySelector(`input[name=view][value=standings]`).disabled = cup;
+  document.querySelector(`input[name=view][value=players]`).disabled = cup;
   document.querySelector(`input[name=view][value=${state.view}]`).checked = true;
 
   const id = ++reqId;
-  if (!cache.has(`${state.view}|${state.season}|${state.div}`)) skeleton();
+  if (state.view === "players") {
+    if (!cache.has(`standings|${state.season}|${state.div}|`)) skeleton();
+    try { await renderPlayers(id); } catch (e) { if (id === reqId) showError(e); }
+    return;
+  }
+  if (!cache.has(`${state.view}|${state.season}|${state.div}|`)) skeleton();
   try {
     const data = await getData(state.view);
     if (id !== reqId) return;
@@ -332,6 +386,8 @@ $("#season").onchange = e => { state.season = +e.target.value; state.round = nul
 $("#out").addEventListener("click", e => {
   const t = e.target.closest("[data-team]");
   if (t) { state.team = short(t.dataset.team); state.view = "matches"; render(); return; }
+  const o = e.target.closest("[data-sort]");
+  if (o) { state.sort = o.dataset.sort; render(); return; }
   const s = e.target.closest("[data-season]");
   if (s) { state.season = +s.dataset.season; state.round = null; render(); return; }
   if (e.target.id === "retry") render();
@@ -342,7 +398,10 @@ $("#out").addEventListener("click", e => {
     render();
   }
 });
-$("#out").addEventListener("change", e => { if (e.target.id === "round") { state.round = e.target.value; render(); } });
+$("#out").addEventListener("change", e => {
+  if (e.target.id === "round") { state.round = e.target.value; render(); }
+  if (e.target.id === "pteam") { state.pteam = e.target.value; render(); }
+});
 
 let timer;
 $("#out").addEventListener("input", e => {

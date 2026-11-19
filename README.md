@@ -26,6 +26,15 @@ cache (`~/.cache/mnsport`, ajustável com `MNSPORT_CACHE`); use `--refresh` para
 `--file caminho.txt` lê um arquivo Football.TXT local.
 Para `team-info`, a chave da API pode ser definida em `THESPORTSDB_KEY` (padrão: chave de teste `123`).
 
+## Probabilidade de título e jogadores
+
+- **Chance de título** (coluna na classificação da Série A/B, só em temporadas em andamento): simulação Monte Carlo
+  (4 mil temporadas) dos jogos que faltam, com gols sorteados por Poisson a partir da força de ataque/defesa de cada time
+  (`mnsport/forecast.py`). É uma estimativa estatística, não uma previsão.
+- **Jogadores** (aba Jogadores): estatísticas por time via [API-Football](https://www.api-football.com/) (`mnsport/players.py`).
+  Exige uma chave gratuita na variável de ambiente `APIFOOTBALL_KEY` (na Vercel: Settings › Environment Variables).
+  O plano gratuito tem limite diário e pode não cobrir todas as temporadas; as respostas ficam em cache por 12 h para poupar a cota.
+
 ## Limitações conhecidas
 
 - A cobertura depende do openfootball: alguns jogos (ex.: boa parte da Série B 2025) estão **sem placar** na fonte.

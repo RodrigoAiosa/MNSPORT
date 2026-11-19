@@ -25,13 +25,16 @@ def load(path):
     return ms
 
 
-def respond(handler, fn):
+def respond(handler, fn, ttl=3600):
     try:
         body, status = json.dumps(fn(), ensure_ascii=False).encode(), 200
-    except Exception as e:  # entrada inválida ou fonte indisponível
-        body, status = json.dumps({"error": str(e)}).encode(), 400
+    except Exception as e:  # entrada inválida, fonte indisponível, chave ausente...
+        code = getattr(e, "code", "error")
+        body = json.dumps({"error": str(e), "code": code}, ensure_ascii=False).encode()
+        status = 503 if code == "no_key" else 429 if code in ("limit", "plan") else 400
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json; charset=utf-8")
-    handler.send_header("Cache-Control", "s-maxage=3600, stale-while-revalidate")
+    # só respostas boas vão para o cache da CDN (protege a cota diária da API)
+    handler.send_header("Cache-Control", f"s-maxage={ttl}, stale-while-revalidate" if status == 200 else "no-store")
     handler.end_headers()
     handler.wfile.write(body)
